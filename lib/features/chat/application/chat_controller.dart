@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pocketstrike/app/theme/theme_controller.dart';
 import 'package:pocketstrike/core/db/app_database.dart';
 import 'package:pocketstrike/core/storage/prefs_provider.dart';
 import 'package:pocketstrike/core/models/chat_models.dart';
