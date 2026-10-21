@@ -1,0 +1,99 @@
+name: Build and Publish Test APKs
+
+on:
+  push:
+    branches:
+      - Update-test
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pocketstrike-test-apks
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    name: Build APKs and update test release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Update-test
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build ARMv7 and ARM64 APKs
+        run: |
+          flutter build apk --release --split-per-abi
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/PocketStrike-v7.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/PocketStrike-v8.apk
+
+      - name: Build universal APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk dist/PocketStrike-universal.apk
+
+      - name: Verify APK outputs
+        run: |
+          test -s dist/PocketStrike-v7.apk
+          test -s dist/PocketStrike-v8.apk
+          test -s dist/PocketStrike-universal.apk
+          ls -lh dist/*.apk
+
+      - name: Publish current test release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-build-${{ github.run_number }}
+          name: PocketStrike Test Build #${{ github.run_number }}
+          body: |
+            Automated test build from branch `Update-test`.
+
+            Commit: ${{ github.sha }}
+
+            APKs:
+            - `PocketStrike-v7.apk`: ARMv7 (32-bit)
+            - `PocketStrike-v8.apk`: ARM64 (64-bit)
+            - `PocketStrike-universal.apk`: Universal APK
+          files: |
+            dist/PocketStrike-v7.apk
+            dist/PocketStrike-v8.apk
+            dist/PocketStrike-universal.apk
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete older automated test releases only
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_TAG: test-build-${{ github.run_number }}
+        run: |
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' |
+            while IFS= read -r tag; do
+              case "$tag" in
+                test-build-*)
+                  if [ "$tag" != "$CURRENT_TAG" ]; then
+                    echo "Deleting older automated test release: $tag"
+                    gh release delete "$tag" --yes
+                  fi
+                  ;;
+              esac
+            done
