@@ -1,16 +1,17 @@
 import 'dart:io';
 import 'package:pocketstrike/features/agent/domain/agent_tool.dart';
+import 'package:pocketstrike/features/agent/data/storage_tools.dart';
 
 /// Document Converter & Text Extraction Tools.
 class DocumentAgentTools {
   const DocumentAgentTools._();
 
-  static List<AgentTool> all() => [
-        extractTextFromFile(),
+  static List<AgentTool> all({required List<String> allowedRoots}) => [
+        extractTextFromFile(allowedRoots),
         formatMarkdownDocument(),
       ];
 
-  static AgentTool extractTextFromFile() => AgentTool(
+  static AgentTool extractTextFromFile(List<String> allowedRoots) => AgentTool(
         name: 'extract_text_from_file',
         description: 'Parses text, markdown, JSON, or code files and extracts clean structured content.',
         inputSchema: const {
@@ -25,15 +26,21 @@ class DocumentAgentTools {
         },
         risk: ToolRisk.safe,
         run: (args) async {
-          final pathStr = args['filePath'] as String? ?? '';
+          final pathStr = (args['filePath'] as String? ?? '').trim();
           if (pathStr.isEmpty) return 'Error: File path is empty.';
-          var resolved = pathStr.trim();
-          if (resolved.startsWith('Download/') || resolved.startsWith('Downloads/')) {
-            resolved = resolved.replaceFirst(RegExp(r'^Downloads?/'), '/storage/emulated/0/Download/');
+          final resolved = StorageAgentTools.resolvePath(pathStr);
+          if (!StorageAgentTools.isAllowed(resolved, allowedRoots)) {
+            return 'Error: Access denied. Path "$resolved" is outside allowed root folders.';
           }
           final file = File(resolved);
           if (!await file.exists()) {
             return 'Error: Document "$resolved" not found.';
+          }
+          // Resolve existing filesystem links before reading to avoid following
+          // a symlink from an allowed directory to a location outside the root.
+          final realPath = await file.resolveSymbolicLinks();
+          if (!StorageAgentTools.isAllowed(realPath, allowedRoots)) {
+            return 'Error: Access denied. The resolved document path is outside allowed root folders.';
           }
           final content = await file.readAsString();
           return 'Extracted Document (${content.length} characters):\n---\n$content';
