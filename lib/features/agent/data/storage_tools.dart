@@ -141,7 +141,7 @@ class StorageAgentTools {
           },
           'required': ['path', 'content'],
         },
-        risk: ToolRisk.safe,
+        risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
           final path = _resolvePath(rawPath);
@@ -170,7 +170,7 @@ class StorageAgentTools {
           },
           'required': ['path'],
         },
-        risk: ToolRisk.safe,
+        risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
           final path = _resolvePath(rawPath);
@@ -236,7 +236,7 @@ class StorageAgentTools {
           },
           'required': ['sourcePath', 'destinationPath'],
         },
-        risk: ToolRisk.safe,
+        risk: ToolRisk.destructive,
         run: (args) async {
           final src = _resolvePath(args['sourcePath'] as String? ?? '');
           final dst = _resolvePath(args['destinationPath'] as String? ?? '');
@@ -292,7 +292,7 @@ class StorageAgentTools {
           },
           'required': ['moves'],
         },
-        risk: ToolRisk.safe,
+        risk: ToolRisk.destructive,
         run: (args) async {
           final movesRaw = args['moves'];
           if (movesRaw is! List || movesRaw.isEmpty) {
@@ -357,7 +357,7 @@ class StorageAgentTools {
           },
           'required': ['directory'],
         },
-        risk: ToolRisk.safe,
+        risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['directory'] as String? ?? 'Downloads';
           final dirPath = _resolvePath(rawPath);
