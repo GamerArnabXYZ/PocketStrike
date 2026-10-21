@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocketstrike/app/theme/theme_controller.dart';
 import 'package:pocketstrike/core/db/app_database.dart';
+import 'package:pocketstrike/core/storage/prefs_provider.dart';
 import 'package:pocketstrike/core/models/chat_models.dart';
 import 'package:pocketstrike/features/agent/data/agent_engine.dart';
 import 'package:pocketstrike/features/agent/data/hermes_memory_store.dart';
@@ -714,9 +715,10 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   ConfirmationPolicy get _policy {
-    return ref.read(themeModeProvider).isDark
-        ? ConfirmationPolicy.destructiveOnly
-        : ConfirmationPolicy.autonomous;
+    final storedPolicy = ref
+        .read(sharedPreferencesProvider)
+        .getString('confirm_policy');
+    return ConfirmationPolicyX.fromId(storedPolicy);
   }
 
   Future<List<ChatMessage>> _buildHistory(
