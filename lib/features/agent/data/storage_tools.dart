@@ -21,7 +21,7 @@ class StorageAgentTools {
   }
 
   /// Intelligent path resolver for mobile storage (e.g. Android /storage/emulated/0/Download).
-  static String _resolvePath(String rawPath) {
+  static String resolvePath(String rawPath) {
     var pathStr = rawPath.trim();
     if (pathStr.isEmpty || pathStr == '.' || pathStr == 'Download' || pathStr == 'Downloads' || pathStr == 'downloads') {
       return '/storage/emulated/0/Download';
@@ -41,11 +41,12 @@ class StorageAgentTools {
     return pathStr;
   }
 
-  static bool _isAllowed(String targetPath, List<String> allowedRoots) {
-    if (allowedRoots.isEmpty) return true; // Default fallback to system access
-    final normalizedTarget = p.canonicalize(targetPath);
+  static bool isAllowed(String targetPath, List<String> allowedRoots) {
+    // Fail closed: an empty allow-list must never grant unrestricted access.
+    if (allowedRoots.isEmpty) return false;
+    final normalizedTarget = p.normalize(p.absolute(targetPath));
     for (final root in allowedRoots) {
-      final normalizedRoot = p.canonicalize(root);
+      final normalizedRoot = p.normalize(p.absolute(root));
       if (normalizedTarget == normalizedRoot ||
           p.isWithin(normalizedRoot, normalizedTarget)) {
         return true;
@@ -71,9 +72,9 @@ class StorageAgentTools {
         risk: ToolRisk.safe,
         run: (args) async {
           final rawPath = args['path'] as String? ?? 'Downloads';
-          final path = _resolvePath(rawPath);
+          final path = resolvePath(rawPath);
 
-          if (!_isAllowed(path, allowedRoots)) {
+          if (!isAllowed(path, allowedRoots)) {
             return 'Error: Access denied. Path "$path" is outside allowed root folders.';
           }
           final dir = Directory(path);
@@ -109,9 +110,9 @@ class StorageAgentTools {
         risk: ToolRisk.safe,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
-          final path = _resolvePath(rawPath);
+          final path = resolvePath(rawPath);
 
-          if (!_isAllowed(path, allowedRoots)) {
+          if (!isAllowed(path, allowedRoots)) {
             return 'Error: Access denied. Path "$path" is outside allowed root folders.';
           }
           final file = File(path);
@@ -144,10 +145,10 @@ class StorageAgentTools {
         risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
-          final path = _resolvePath(rawPath);
+          final path = resolvePath(rawPath);
           final content = args['content'] as String? ?? '';
 
-          if (!_isAllowed(path, allowedRoots)) {
+          if (!isAllowed(path, allowedRoots)) {
             return 'Error: Access denied. Path "$path" is outside allowed root folders.';
           }
           final file = File(path);
@@ -173,9 +174,9 @@ class StorageAgentTools {
         risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
-          final path = _resolvePath(rawPath);
+          final path = resolvePath(rawPath);
 
-          if (!_isAllowed(path, allowedRoots)) {
+          if (!isAllowed(path, allowedRoots)) {
             return 'Error: Access denied. Path "$path" is outside allowed root folders.';
           }
           final dir = Directory(path);
@@ -201,9 +202,9 @@ class StorageAgentTools {
         risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['path'] as String? ?? '';
-          final path = _resolvePath(rawPath);
+          final path = resolvePath(rawPath);
 
-          if (!_isAllowed(path, allowedRoots)) {
+          if (!isAllowed(path, allowedRoots)) {
             return 'Error: Access denied. Path "$path" is outside allowed root folders.';
           }
           final type = await FileSystemEntity.type(path);
@@ -238,9 +239,9 @@ class StorageAgentTools {
         },
         risk: ToolRisk.destructive,
         run: (args) async {
-          final src = _resolvePath(args['sourcePath'] as String? ?? '');
-          final dst = _resolvePath(args['destinationPath'] as String? ?? '');
-          if (!_isAllowed(src, allowedRoots) || !_isAllowed(dst, allowedRoots)) {
+          final src = resolvePath(args['sourcePath'] as String? ?? '');
+          final dst = resolvePath(args['destinationPath'] as String? ?? '');
+          if (!isAllowed(src, allowedRoots) || !isAllowed(dst, allowedRoots)) {
             return 'Error: Access denied. Both source and destination must be inside allowed root folders.';
           }
           final type = await FileSystemEntity.type(src);
@@ -303,9 +304,9 @@ class StorageAgentTools {
 
           for (final item in movesRaw) {
             if (item is! Map) continue;
-            final src = _resolvePath(item['sourcePath'] as String? ?? '');
-            final dst = _resolvePath(item['destinationPath'] as String? ?? '');
-            if (!_isAllowed(src, allowedRoots) || !_isAllowed(dst, allowedRoots)) {
+            final src = resolvePath(item['sourcePath'] as String? ?? '');
+            final dst = resolvePath(item['destinationPath'] as String? ?? '');
+            if (!isAllowed(src, allowedRoots) || !isAllowed(dst, allowedRoots)) {
               errors.add('Access denied for $src -> $dst');
               continue;
             }
@@ -360,9 +361,9 @@ class StorageAgentTools {
         risk: ToolRisk.destructive,
         run: (args) async {
           final rawPath = args['directory'] as String? ?? 'Downloads';
-          final dirPath = _resolvePath(rawPath);
+          final dirPath = resolvePath(rawPath);
 
-          if (!_isAllowed(dirPath, allowedRoots)) {
+          if (!isAllowed(dirPath, allowedRoots)) {
             return 'Error: Access denied. Path "$dirPath" is outside allowed root folders.';
           }
           final dir = Directory(dirPath);
@@ -456,10 +457,10 @@ class StorageAgentTools {
         risk: ToolRisk.safe,
         run: (args) async {
           final rawPath = args['directory'] as String? ?? 'Downloads';
-          final dirPath = _resolvePath(rawPath);
+          final dirPath = resolvePath(rawPath);
           final query = (args['query'] as String? ?? '').toLowerCase();
 
-          if (!_isAllowed(dirPath, allowedRoots)) {
+          if (!isAllowed(dirPath, allowedRoots)) {
             return 'Error: Access denied. Path "$dirPath" is outside allowed root folders.';
           }
           final dir = Directory(dirPath);
