@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:pocketstrike/features/agent/domain/agent_tool.dart';
+import 'package:path/path.dart' as p;
 import 'package:pocketstrike/features/agent/data/storage_tools.dart';
 
 /// Document Converter & Text Extraction Tools.
@@ -10,6 +11,28 @@ class DocumentAgentTools {
         extractTextFromFile(allowedRoots),
         formatMarkdownDocument(),
       ];
+
+  static Future<bool> _isResolvedPathAllowed(
+    String targetPath,
+    List<String> allowedRoots,
+  ) async {
+    try {
+      final realTarget = p.normalize(await File(targetPath).resolveSymbolicLinks());
+      for (final root in allowedRoots) {
+        try {
+          final realRoot = p.normalize(await Directory(root).resolveSymbolicLinks());
+          if (realTarget == realRoot || p.isWithin(realRoot, realTarget)) {
+            return true;
+          }
+        } on FileSystemException {
+          // A missing/unavailable root grants no access.
+        }
+      }
+    } on FileSystemException {
+      return false;
+    }
+    return false;
+  }
 
   static AgentTool extractTextFromFile(List<String> allowedRoots) => AgentTool(
         name: 'extract_text_from_file',
@@ -36,10 +59,9 @@ class DocumentAgentTools {
           if (!await file.exists()) {
             return 'Error: Document "$resolved" not found.';
           }
-          // Resolve existing filesystem links before reading to avoid following
-          // a symlink from an allowed directory to a location outside the root.
-          final realPath = await file.resolveSymbolicLinks();
-          if (!StorageAgentTools.isAllowed(realPath, allowedRoots)) {
+          // Resolve both target and root links before reading, so Android's
+          // storage aliases don't cause false denials and symlinks can't escape.
+          if (!await _isResolvedPathAllowed(resolved, allowedRoots)) {
             return 'Error: Access denied. The resolved document path is outside allowed root folders.';
           }
           final content = await file.readAsString();
