@@ -11,12 +11,14 @@ import 'storage_tools.dart';
 class BuiltInTools {
   const BuiltInTools._();
 
-  static List<AgentTool> all({List<String> allowedRoots = const []}) => [
+  static List<AgentTool> all({
+    List<String> allowedRoots = const ['/storage/emulated/0'],
+  }) => [
         currentTime(),
         calculator(),
         ...DeviceAgentTools.all(),
         ...AndroidAutomationTools.all(),
-        ...DocumentAgentTools.all(),
+        ...DocumentAgentTools.all(allowedRoots: allowedRoots),
         ...StorageAgentTools.tools(allowedRoots: allowedRoots),
         ...ExtraAgentTools.all(),
       ];
