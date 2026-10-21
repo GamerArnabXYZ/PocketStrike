@@ -61,7 +61,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: test-build-${{ github.run_number }}
-          name: PocketStrike Test Build #${{ github.run_number }}
+          name: 'PocketStrike Test Build #${{ github.run_number }}'
           body: |
             Automated test build from branch `Update-test`.
 
