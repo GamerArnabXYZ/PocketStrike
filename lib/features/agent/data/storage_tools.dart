@@ -248,6 +248,10 @@ class StorageAgentTools {
           if (type == FileSystemEntityType.notFound) {
             return 'Source path "$src" does not exist.';
           }
+          final destinationType = await FileSystemEntity.type(dst);
+          if (destinationType != FileSystemEntityType.notFound) {
+            return 'Error: Destination "$dst" already exists. Choose a different destination to avoid overwriting data.';
+          }
           try {
             if (type == FileSystemEntityType.directory) {
               await Directory(dst).parent.create(recursive: true);
@@ -314,6 +318,11 @@ class StorageAgentTools {
               final type = await FileSystemEntity.type(src);
               if (type == FileSystemEntityType.notFound) {
                 errors.add('Not found: $src');
+                continue;
+              }
+              final destinationType = await FileSystemEntity.type(dst);
+              if (destinationType != FileSystemEntityType.notFound) {
+                errors.add('Destination already exists; skipped to prevent overwrite: $dst');
                 continue;
               }
               if (type == FileSystemEntityType.directory) {
@@ -410,6 +419,7 @@ class StorageAgentTools {
 
           var moved = 0;
           final categoriesUsed = <String>{};
+          final errors = <String>[];
           final entries = await dir.list().toList();
 
           for (final entity in entries) {
@@ -420,20 +430,35 @@ class StorageAgentTools {
             final targetPath = p.join(targetDir, p.basename(entity.path));
 
             try {
+              if (await FileSystemEntity.type(targetPath) != FileSystemEntityType.notFound) {
+                errors.add('Skipped "$targetPath": destination already exists.');
+                continue;
+              }
               await Directory(targetDir).create(recursive: true);
               try {
                 await entity.rename(targetPath);
               } catch (_) {
+                // Cross-device fallback after checking the destination is absent.
                 await entity.copy(targetPath);
                 await entity.delete();
               }
               moved++;
               categoriesUsed.add(category);
-            } catch (_) {}
+            } catch (e) {
+              errors.add('Could not organize "${entity.path}": $e');
+            }
           }
 
-          if (moved == 0) return 'No unorganized files found in "$dirPath".';
-          return 'Successfully organized $moved file(s) into subfolders: ${categoriesUsed.join(", ")}.';
+          if (moved == 0 && errors.isEmpty) {
+            return 'No unorganized files found in "$dirPath".';
+          }
+          final summary = StringBuffer(
+            'Organized $moved file(s) into subfolders: ${categoriesUsed.join(", ")}.',
+          );
+          if (errors.isNotEmpty) {
+            summary.write('\nWarnings/Errors:\n• ${errors.join("\n• ")}');
+          }
+          return summary.toString();
         },
       );
 
